@@ -1,0 +1,44 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../app/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model SyncLog {
+  id               String     @id @default(cuid())
+  timestamp        DateTime   @default(now())
+  type             SyncType
+  status           SyncStatus
+  message          String
+  productsAffected Int?
+  details          Json?
+
+  @@map("sync_logs")
+}
+
+model StockSnapshot {
+  id          String   @id @default(cuid())
+  capturedAt  DateTime @default(now())
+  productCode String
+  stockTn     Int
+  stockFx     Int
+  diff        Int
+
+  @@map("stock_snapshots")
+}
+
+enum SyncType {
+  stock
+  price
+  order
+  full
+}
+
+enum SyncStatus {
+  ok
+  warning
+  error
+}

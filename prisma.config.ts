@@ -1,4 +1,8 @@
-import "dotenv/config";
+import { config } from "dotenv";
+// Carga .env.local primero (Next.js convention), luego .env como fallback
+config({ path: ".env.local", override: true });
+config({ path: ".env" });
+
 import { defineConfig } from "prisma/config";
 
 export default defineConfig({
@@ -7,7 +11,7 @@ export default defineConfig({
     path: "prisma/migrations",
   },
   datasource: {
-    // Para migraciones usamos la conexión directa (sin pooler)
+    // Conexión directa (sin pooler) para migraciones
     url: process.env["DATABASE_URL_UNPOOLED"] ?? process.env["DATABASE_URL"],
   },
 });

@@ -7,7 +7,7 @@ export interface StockSyncResult {
   updated: number
   skipped: number
   errors: number
-  diffs: Array<{ code: string; tnStock: number; fxStock: number; diff: number }>
+  diffs: Array<{ code: string; name: string; tnStock: number; fxStock: number; diff: number }>
   duration: number
 }
 
@@ -32,7 +32,7 @@ export async function syncStock(): Promise<StockSyncResult> {
 
     const fxMap = new Map(fxProducts.map((a) => [a.codigo, a]))
 
-    type TNVariantRef = { productId: number; variantId: number; stock: number }
+    type TNVariantRef = { productId: number; variantId: number; stock: number; name: string }
     const tnMap = new Map<string, TNVariantRef>()
     for (const prod of tnProducts) {
       for (const variant of prod.variants) {
@@ -41,6 +41,7 @@ export async function syncStock(): Promise<StockSyncResult> {
             productId: prod.id,
             variantId: variant.id,
             stock: variant.stock ?? 0,
+            name: prod.name.es,
           })
         }
       }
@@ -60,7 +61,7 @@ export async function syncStock(): Promise<StockSyncResult> {
         continue
       }
 
-      result.diffs.push({ code: codigo, tnStock, fxStock, diff: fxStock - tnStock })
+      result.diffs.push({ code: codigo, name: tnRef.name, tnStock, fxStock, diff: fxStock - tnStock })
 
       try {
         await updateTNStock(tnRef.productId, tnRef.variantId, fxStock)

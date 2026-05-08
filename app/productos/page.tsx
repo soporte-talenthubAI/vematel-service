@@ -12,16 +12,19 @@ export default function ProductosPage() {
 
   useEffect(() => {
     Promise.all([
-      fetch('/api/tiendanube/products').then((r) => r.json()),
-      fetch('/api/flexus/products').then((r) => r.json()),
+      fetch('/api/tiendanube/products').then((r) => r.json()).catch(() => []),
+      fetch('/api/flexus/products').then((r) => r.json()).catch(() => []),
     ])
       .then(([tnRaw, fxRaw]) => {
+        const tnList = Array.isArray(tnRaw) ? tnRaw : []
+        const fxList = Array.isArray(fxRaw) ? fxRaw : []
+
         const fxMap = new Map(
-          (fxRaw as Array<{ codigo: string; stock_actual: number; precio_venta: number; categoria: string }>)
-            .map((p) => [p.codigo, p]),
+          fxList.map((p: { codigo: string; stock_actual: number; precio_venta: number }) => [p.codigo, p]),
         )
+
         const products: UnifiedProduct[] = []
-        for (const tnProd of tnRaw as Array<{
+        for (const tnProd of tnList as Array<{
           id: number
           name: { es: string }
           categories: Array<{ name: { es: string } }>

@@ -11,10 +11,7 @@ export function SyncButton() {
     setState('loading')
     setSummary('')
     try {
-      const res = await fetch('/api/sync/stock', {
-        method: 'POST',
-        headers: { 'x-sync-secret': process.env.NEXT_PUBLIC_SYNC_SECRET ?? '' },
-      })
+      const res = await fetch('/api/sync/manual', { method: 'POST' })
       const json = await res.json()
       if (!res.ok) throw new Error(json.error)
       const r = json.result

@@ -9,10 +9,7 @@ export function TopBar({ title }: { title: string }) {
   async function triggerSync() {
     setSyncing(true)
     try {
-      await fetch('/api/sync/stock', {
-        method: 'POST',
-        headers: { 'x-sync-secret': '' },
-      })
+      await fetch('/api/sync/manual', { method: 'POST' })
     } finally {
       setSyncing(false)
     }

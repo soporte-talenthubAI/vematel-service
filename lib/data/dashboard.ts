@@ -31,12 +31,22 @@ export async function getDashboardData(): Promise<
     0,
   )
 
-  // Timeline últimos 7 días (placeholder con datos reales agrupados por día)
+  // Timeline últimos 7 días agrupado por día
   const today = new Date()
+  const tnByDay = new Map<string, number>()
+  for (const order of tnOrders) {
+    const key = new Date(order.created_at).toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit' })
+    tnByDay.set(key, (tnByDay.get(key) ?? 0) + parseFloat(order.total))
+  }
+  const fxByDay = new Map<string, number>()
+  for (const venta of fxSales) {
+    const key = new Date(venta.fecha).toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit' })
+    fxByDay.set(key, (fxByDay.get(key) ?? 0) + venta.total)
+  }
   const salesTimeline = Array.from({ length: 7 }, (_, i) => {
     const d = subDays(today, 6 - i)
     const dateStr = d.toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit' })
-    return { date: dateStr, tn: 0, fx: 0 }
+    return { date: dateStr, tn: tnByDay.get(dateStr) ?? 0, fx: fxByDay.get(dateStr) ?? 0 }
   })
 
   // Stock sync status

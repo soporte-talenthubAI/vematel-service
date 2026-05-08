@@ -23,12 +23,12 @@ export default async function VentasPage() {
         <MetricCard label="Ventas Flexus" value={fmt(data.salesFX)} accent="amber" />
         <MetricCard
           label="Ticket prom. TN"
-          value={fmt(data.avgTicketTN)}
+          value={fmt(data.ticketPromedioTN)}
           accent="green"
         />
         <MetricCard
           label="Ticket prom. Flexus"
-          value={fmt(data.avgTicketFX)}
+          value={fmt(data.ticketPromedioFX)}
           accent="purple"
         />
       </div>

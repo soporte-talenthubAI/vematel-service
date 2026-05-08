@@ -2,12 +2,15 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import { signOut } from 'next-auth/react'
 import {
   LayoutDashboard,
   Package,
   TrendingUp,
   ShoppingBag,
   RefreshCw,
+  Users,
+  LogOut,
 } from 'lucide-react'
 
 const NAV = [
@@ -16,6 +19,10 @@ const NAV = [
   { href: '/ventas', label: 'Ventas', icon: TrendingUp },
   { href: '/productos', label: 'Productos', icon: ShoppingBag },
   { href: '/sync', label: 'Sync & Logs', icon: RefreshCw },
+]
+
+const ADMIN_NAV = [
+  { href: '/admin/usuarios', label: 'Usuarios', icon: Users },
 ]
 
 export function Sidebar() {
@@ -51,13 +58,39 @@ export function Sidebar() {
             {label}
           </Link>
         ))}
+
+        <div className="pt-3 pb-1">
+          <div className="text-xs font-medium text-gray-300 px-3 pb-1 uppercase tracking-wide">Admin</div>
+          {ADMIN_NAV.map(({ href, label, icon: Icon }) => (
+            <Link
+              key={href}
+              href={href}
+              className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-colors
+                ${
+                  path.startsWith(href)
+                    ? 'bg-blue-50 text-blue-700 font-medium'
+                    : 'text-gray-600 hover:bg-gray-50'
+                }`}
+            >
+              <Icon size={15} />
+              {label}
+            </Link>
+          ))}
+        </div>
       </nav>
 
-      <div className="p-3 border-t border-gray-100">
+      <div className="p-3 border-t border-gray-100 space-y-1">
         <div className="flex items-center gap-2 px-3 py-2 text-xs text-gray-400">
           <div className="w-2 h-2 rounded-full bg-green-400" />
-          TN + Flexus conectados
+          TN conectado
         </div>
+        <button
+          onClick={() => signOut({ callbackUrl: '/login' })}
+          className="flex items-center gap-2.5 w-full px-3 py-2 rounded-lg text-sm text-gray-500 hover:bg-red-50 hover:text-red-600 transition-colors"
+        >
+          <LogOut size={15} />
+          Cerrar sesión
+        </button>
       </div>
     </aside>
   )

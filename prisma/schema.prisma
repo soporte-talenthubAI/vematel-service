@@ -7,6 +7,19 @@ datasource db {
   provider = "postgresql"
 }
 
+model User {
+  id          String    @id @default(cuid())
+  email       String    @unique
+  name        String
+  password    String
+  is_active   Boolean   @default(true)
+  last_access DateTime?
+  created_at  DateTime  @default(now())
+  updated_at  DateTime  @updatedAt
+
+  @@map("users")
+}
+
 model SyncLog {
   id               String     @id @default(cuid())
   timestamp        DateTime   @default(now())

@@ -4,7 +4,7 @@ interface Props {
   delta?: string
   deltaType?: 'up' | 'down'
   sub?: string
-  accent?: 'blue' | 'amber' | 'green' | 'purple'
+  accent?: 'blue' | 'amber' | 'green' | 'purple' | 'red'
 }
 
 const ACCENT_BAR: Record<NonNullable<Props['accent']>, string> = {
@@ -12,6 +12,7 @@ const ACCENT_BAR: Record<NonNullable<Props['accent']>, string> = {
   amber: 'bg-amber-400',
   green: 'bg-emerald-500',
   purple: 'bg-violet-500',
+  red: 'bg-red-500',
 }
 
 export function MetricCard({

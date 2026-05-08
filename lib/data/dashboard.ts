@@ -1,106 +1,200 @@
-import { getAllTNProducts } from '@/lib/tiendanube/client'
+import { getAllTNProducts, getAllTNOrders } from '@/lib/tiendanube/client'
 import { getFlexusProducts, getFlexusSales } from '@/lib/flexus/client'
-import { getTNOrders } from '@/lib/tiendanube/client'
-import { subDays } from 'date-fns'
-import type { DashboardMetrics } from '@/types/unified'
+import { subDays, startOfDay, format } from 'date-fns'
+import { es } from 'date-fns/locale'
 
-export async function getDashboardData(): Promise<
-  DashboardMetrics & { productsSynced: number; stockDiffs: number }
-> {
-  const from = subDays(new Date(), 30)
-  const to = new Date()
+export interface DashboardData {
+  // Ventas TN (30 días, solo pagadas)
+  salesTN: number
+  ordenesTN: number
+  ticketPromedioTN: number
+  unidadesTN: number
 
-  const [tnProducts, fxProducts, tnOrders, fxSales] = await Promise.all([
+  // Ventas Flexus (30 días)
+  salesFX: number
+  ordenesFX: number
+  ticketPromedioFX: number
+  unidadesFX: number
+
+  // Inventario TN
+  totalProductosTN: number
+  productosSinStock: number
+  productosStockBajo: number
+  valorInventarioTN: number
+
+  // Sync
+  productsSynced: number
+  stockDiffs: number
+
+  // Comparativo mes anterior (TN)
+  salesTNMesAnterior: number
+  crecimientoTN: number // porcentaje
+
+  // Timeline 30 días
+  salesTimeline: Array<{ date: string; tn: number; fx: number }>
+
+  // Top productos vendidos TN
+  topProductos: Array<{ sku: string; nombre: string; unidades: number; total: number }>
+
+  // Alertas de stock
+  alertasStock: Array<{ sku: string; nombre: string; stock: number; categoria: string }>
+
+  // Estado de conexiones
+  tnConnected: boolean
+  flexusConnected: boolean
+}
+
+export async function getDashboardData(): Promise<DashboardData> {
+  const now = new Date()
+  const desde30d = subDays(now, 30)
+  const desde60d = subDays(now, 60)
+
+  const [tnProducts, fxProducts, ordenes30d, ordenes60d, fxSales] = await Promise.all([
     getAllTNProducts().catch(() => []),
     getFlexusProducts().catch(() => []),
-    getTNOrders(subDays(new Date(), 7)).catch(() => []),
-    getFlexusSales(subDays(new Date(), 7), to).catch(() => []),
+    getAllTNOrders(desde30d).catch(() => []),
+    getAllTNOrders(desde60d).catch(() => []),
+    getFlexusSales(desde30d, now).catch(() => []),
   ])
 
-  // Ventas TN últimos 7 días
-  const salesTN = tnOrders.reduce((sum, o) => sum + parseFloat(o.total), 0)
-  const unitsTN = tnOrders.reduce(
-    (sum, o) => sum + o.products.reduce((s, p) => s + p.quantity, 0),
+  const tnConnected = tnProducts.length > 0
+  const flexusConnected = fxProducts.length > 0
+
+  // ── Ventas TN ──────────────────────────────────────────────
+  const salesTN = ordenes30d.reduce((s, o) => s + parseFloat(o.total || '0'), 0)
+  const ordenesTN = ordenes30d.length
+  const unidadesTN = ordenes30d.reduce(
+    (s, o) => s + o.products.reduce((ps, p) => ps + p.quantity, 0),
     0,
   )
+  const ticketPromedioTN = ordenesTN > 0 ? salesTN / ordenesTN : 0
 
-  // Ventas Flexus últimos 7 días
-  const salesFX = fxSales.reduce((sum, v) => sum + v.total, 0)
-  const unitsFX = fxSales.reduce(
-    (sum, v) => sum + v.articulos.reduce((s, a) => s + a.cantidad, 0),
+  // Mes anterior: órdenes entre -60d y -30d
+  const ordenesMesAnterior = ordenes60d.filter(o => {
+    const d = new Date(o.created_at)
+    return d >= desde60d && d < desde30d
+  })
+  const salesTNMesAnterior = ordenesMesAnterior.reduce(
+    (s, o) => s + parseFloat(o.total || '0'),
     0,
   )
+  const crecimientoTN =
+    salesTNMesAnterior > 0
+      ? ((salesTN - salesTNMesAnterior) / salesTNMesAnterior) * 100
+      : 0
 
-  // Timeline últimos 7 días agrupado por día
-  const today = new Date()
+  // ── Ventas Flexus ──────────────────────────────────────────
+  const salesFX = fxSales.reduce((s, v) => s + v.total, 0)
+  const ordenesFX = fxSales.length
+  const unidadesFX = fxSales.reduce(
+    (s, v) => s + v.articulos.reduce((ps, a) => ps + a.cantidad, 0),
+    0,
+  )
+  const ticketPromedioFX = ordenesFX > 0 ? salesFX / ordenesFX : 0
+
+  // ── Inventario TN ──────────────────────────────────────────
+  let totalProductosTN = 0
+  let productosSinStock = 0
+  let productosStockBajo = 0
+  let valorInventarioTN = 0
+  const alertasStock: DashboardData['alertasStock'] = []
+
+  for (const prod of tnProducts) {
+    for (const v of prod.variants) {
+      if (!v.sku) continue
+      totalProductosTN++
+      const stock = v.stock ?? 0
+      const precio = parseFloat(v.price || '0')
+      valorInventarioTN += stock * precio
+
+      if (stock === 0) {
+        productosSinStock++
+        alertasStock.push({
+          sku: v.sku,
+          nombre: prod.name.es,
+          stock: 0,
+          categoria: prod.categories[0]?.name?.es ?? 'Sin categoría',
+        })
+      } else if (stock <= 3) {
+        productosStockBajo++
+        alertasStock.push({
+          sku: v.sku,
+          nombre: prod.name.es,
+          stock,
+          categoria: prod.categories[0]?.name?.es ?? 'Sin categoría',
+        })
+      }
+    }
+  }
+
+  // ── Sync TN ↔ Flexus ──────────────────────────────────────
+  const fxMap = new Map(fxProducts.map(p => [p.codigo, p]))
+  let productsSynced = 0
+  let stockDiffs = 0
+  for (const prod of tnProducts) {
+    for (const v of prod.variants) {
+      if (!v.sku) continue
+      const fx = fxMap.get(v.sku)
+      if (!fx) continue
+      if ((v.stock ?? 0) === fx.stock_actual) productsSynced++
+      else stockDiffs++
+    }
+  }
+
+  // ── Timeline 30 días ──────────────────────────────────────
   const tnByDay = new Map<string, number>()
-  for (const order of tnOrders) {
-    const key = new Date(order.created_at).toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit' })
-    tnByDay.set(key, (tnByDay.get(key) ?? 0) + parseFloat(order.total))
+  for (const o of ordenes30d) {
+    const key = format(startOfDay(new Date(o.created_at)), 'dd/MM', { locale: es })
+    tnByDay.set(key, (tnByDay.get(key) ?? 0) + parseFloat(o.total || '0'))
   }
   const fxByDay = new Map<string, number>()
-  for (const venta of fxSales) {
-    const key = new Date(venta.fecha).toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit' })
-    fxByDay.set(key, (fxByDay.get(key) ?? 0) + venta.total)
+  for (const v of fxSales) {
+    const key = format(startOfDay(new Date(v.fecha)), 'dd/MM', { locale: es })
+    fxByDay.set(key, (fxByDay.get(key) ?? 0) + v.total)
   }
-  const salesTimeline = Array.from({ length: 7 }, (_, i) => {
-    const d = subDays(today, 6 - i)
-    const dateStr = d.toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit' })
-    return { date: dateStr, tn: tnByDay.get(dateStr) ?? 0, fx: fxByDay.get(dateStr) ?? 0 }
+  const salesTimeline = Array.from({ length: 30 }, (_, i) => {
+    const d = subDays(now, 29 - i)
+    const key = format(startOfDay(d), 'dd/MM', { locale: es })
+    return { date: key, tn: tnByDay.get(key) ?? 0, fx: fxByDay.get(key) ?? 0 }
   })
 
-  // Stock sync status
-  const fxMap = new Map(fxProducts.map((p) => [p.codigo, p]))
-  let synced = 0
-  let diffs = 0
-  for (const tnProd of tnProducts) {
-    for (const variant of tnProd.variants) {
-      if (!variant.sku) continue
-      const fxArt = fxMap.get(variant.sku)
-      if (!fxArt) continue
-      if ((variant.stock ?? 0) === fxArt.stock_actual) synced++
-      else diffs++
+  // ── Top productos vendidos (TN, 30d) ──────────────────────
+  const prodMap = new Map<string, { nombre: string; unidades: number; total: number }>()
+  for (const o of ordenes30d) {
+    for (const item of o.products) {
+      if (!item.sku) continue
+      const existing = prodMap.get(item.sku) ?? { nombre: item.name, unidades: 0, total: 0 }
+      existing.unidades += item.quantity
+      existing.total += parseFloat(item.price || '0') * item.quantity
+      prodMap.set(item.sku, existing)
     }
   }
-
-  // Top productos Flexus por total vendido
-  const productSales = new Map<string, { name: string; total: number }>()
-  for (const venta of fxSales) {
-    for (const art of venta.articulos) {
-      const existing = productSales.get(art.codigo) ?? { name: art.codigo, total: 0 }
-      existing.total += art.subtotal
-      productSales.set(art.codigo, existing)
-    }
-  }
-  const topProducts = Array.from(productSales.entries())
-    .map(([code, v]) => ({ code, name: v.name, total: v.total }))
+  const topProductos = Array.from(prodMap.entries())
+    .map(([sku, v]) => ({ sku, ...v }))
     .sort((a, b) => b.total - a.total)
-    .slice(0, 6)
-
-  // Ventas por categoría (Flexus)
-  const catMap = new Map<string, number>()
-  for (const prod of fxProducts) {
-    const existing = catMap.get(prod.categoria) ?? 0
-    const prodSales = productSales.get(prod.codigo)?.total ?? 0
-    catMap.set(prod.categoria, existing + prodSales)
-  }
-  const salesByCategory = Array.from(catMap.entries())
-    .map(([category, amount]) => ({ category, amount }))
-    .sort((a, b) => b.amount - a.amount)
-    .slice(0, 6)
+    .slice(0, 8)
 
   return {
     salesTN,
+    ordenesTN,
+    ticketPromedioTN,
+    unidadesTN,
     salesFX,
-    totalSales: salesTN + salesFX,
-    unitsTN,
-    unitsFX,
-    avgTicketTN: unitsTN > 0 ? salesTN / unitsTN : 0,
-    avgTicketFX: unitsFX > 0 ? salesFX / unitsFX : 0,
-    topProducts,
-    salesByCategory,
+    ordenesFX,
+    ticketPromedioFX,
+    unidadesFX,
+    totalProductosTN,
+    productosSinStock,
+    productosStockBajo,
+    valorInventarioTN,
+    productsSynced,
+    stockDiffs,
+    salesTNMesAnterior,
+    crecimientoTN,
     salesTimeline,
-    productsSynced: synced,
-    stockDiffs: diffs,
+    topProductos,
+    alertasStock: alertasStock.slice(0, 10),
+    tnConnected,
+    flexusConnected,
   }
 }

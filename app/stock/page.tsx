@@ -1,7 +1,6 @@
 import { MetricCard } from '@/components/dashboard/MetricCard'
 import { StockDiffTable } from '@/components/stock/StockDiffTable'
 import { StockByCategory } from '@/components/stock/StockByCategory'
-import { SyncButton } from '@/components/stock/SyncButton'
 import { getUnifiedStock } from '@/lib/data/stock'
 
 export const revalidate = 60
@@ -11,14 +10,11 @@ export default async function StockPage() {
 
   return (
     <div className="p-6">
-      <div className="flex items-center justify-between mb-5">
-        <div>
-          <h1 className="text-xl font-semibold">Stock Unificado</h1>
-          <p className="text-sm text-gray-400">
-            Flexus es la fuente de verdad — TN se actualiza desde Flexus
-          </p>
-        </div>
-        <SyncButton />
+      <div className="mb-5">
+        <h1 className="text-xl font-semibold">Stock Unificado</h1>
+        <p className="text-sm text-gray-400">
+          Flexus es la fuente de verdad — TN se actualiza desde Flexus
+        </p>
       </div>
 
       <div className="grid grid-cols-4 gap-3 mb-5">

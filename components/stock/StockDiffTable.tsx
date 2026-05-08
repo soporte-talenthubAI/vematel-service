@@ -25,7 +25,7 @@ export function StockDiffTable({ diffs }: Props) {
       <table className="w-full text-xs">
         <thead>
           <tr className="text-gray-400 border-b border-gray-50">
-            <th className="text-left py-2 font-medium">Código</th>
+            <th className="text-left py-2 font-medium">Producto</th>
             <th className="text-right py-2 font-medium">TN</th>
             <th className="text-right py-2 font-medium">Flexus</th>
             <th className="text-right py-2 font-medium">Diff</th>
@@ -35,7 +35,10 @@ export function StockDiffTable({ diffs }: Props) {
         <tbody className="divide-y divide-gray-50">
           {diffs.map((d) => (
             <tr key={d.code} className="hover:bg-gray-50/50">
-              <td className="py-2 font-mono text-gray-700">{d.code}</td>
+              <td className="py-2">
+                <div className="font-medium text-gray-800 leading-tight truncate max-w-[220px]">{d.name}</div>
+                <div className="font-mono text-[10px] text-gray-400 mt-0.5">{d.code}</div>
+              </td>
               <td className="py-2 text-right text-gray-600">{d.tnStock}</td>
               <td className="py-2 text-right text-gray-600">{d.fxStock}</td>
               <td
